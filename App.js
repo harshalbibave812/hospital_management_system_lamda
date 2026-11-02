@@ -13,18 +13,24 @@ app.use(cors({ origin: process.env.FRONTEND_URL, credentials: true }));
 app.use(express.json());
 app.use(morgan(':method :url :status :response-time ms'));
 
-// ── Route-level global middleware (applied once per route group) ───────────────
-// Login routes: rate limit + body validation applied globally before the router
-app.use('/api/auth/login', authLimiter, validateBody('login'));
+// ── Request / Response Logger ──────────────────────────────────────────────────
+app.use((req, res, next) => {
+  if (Object.keys(req.body).length) console.log('[REQ PAYLOAD]', req.method, req.url, req.body);
+  const originalJson = res.json.bind(res);
+  res.json = (data) => { console.log('[RES PAYLOAD]', req.method, req.url, data); return originalJson(data); };
+  next();
+});
 
-// Register routes: rate limit + body validation per endpoint
-app.use('/api/auth/register', authLimiter, validateBody('register'));
-app.use('/api/auth/send-otp', otpLimiter, validateBody('sendOtp'));
-app.use('/api/auth/verify-otp', otpLimiter, validateBody('verifyOtp'));
+// ── Auth route-level middleware ────────────────────────────────────────────────
+app.use('/api/auth/login',      authLimiter, validateBody('login'));
+app.use('/api/auth/register',   authLimiter, validateBody('register'));
+app.use('/api/auth/send-otp',   otpLimiter,  validateBody('sendOtp'));
+app.use('/api/auth/verify-otp', otpLimiter,  validateBody('verifyOtp'));
 
 // ── Routes ─────────────────────────────────────────────────────────────────────
-app.use('/api/auth', require('./routes/login.routes'));
-app.use('/api/auth', require('./routes/register.routes'));
+app.use('/api/auth',    require('./routes/login.routes'));
+app.use('/api/auth',    require('./routes/register.routes'));
+app.use('/api/patient', require('./routes/patient.routes'));
 
 // ── 404 ────────────────────────────────────────────────────────────────────────
 app.use((req, res) => res.status(404).json({ message: 'Route not found' }));
